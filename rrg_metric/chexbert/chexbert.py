@@ -56,6 +56,11 @@ class CheXbert(nn.Module):
         self.refs_filename = refs_filename
         self.hyps_filename = hyps_filename
 
+        from ..distributed_utils import is_distributed
+        if is_distributed():
+             local_rank = int(os.environ.get("LOCAL_RANK", 0))
+             device = f"cuda:{local_rank}"
+
         if device is None:
             device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.device = torch.device(device)
@@ -110,6 +115,14 @@ class CheXbert(nn.Module):
         return v, embeds
 
     def forward(self, hyps, refs):
+        from ..distributed_utils import is_distributed, get_rank, get_world_size, split_data, gather_results
+
+        if is_distributed():
+             rank = get_rank()
+             world_size = get_world_size()
+             hyps = split_data(hyps, rank, world_size)
+             refs = split_data(refs, rank, world_size)
+
         if self.refs_filename is None:
             refs_chexbert = [self.get_label(l.strip()) for l in refs]
         else:
@@ -122,6 +135,20 @@ class CheXbert(nn.Module):
         hyps_chexbert = [self.get_label(l.strip()) for l in hyps]
         if self.hyps_filename is not None:
             open(self.hyps_filename, 'w').write('\n'.join(map(str, hyps_chexbert)))
+
+        if is_distributed():
+             # Move to CPU for gathering
+             refs_chexbert = [(r[0], r[1].cpu()) for r in refs_chexbert]
+             hyps_chexbert = [(h[0], h[1].cpu()) for h in hyps_chexbert]
+             
+             all_refs_chexbert = gather_results(refs_chexbert)
+             all_hyps_chexbert = gather_results(hyps_chexbert)
+             
+             if get_rank() != 0:
+                 return None, None, None, None, None
+             
+             refs_chexbert = all_refs_chexbert
+             hyps_chexbert = all_hyps_chexbert
 
         refs_chexbert, list_label_embeds = [r[0] for r in refs_chexbert], [r[1] for r in refs_chexbert]
         hyps_chexbert, list_pred_embeds = [h[0] for h in hyps_chexbert], [h[1] for h in hyps_chexbert]
@@ -143,7 +170,7 @@ class CheXbert(nn.Module):
         # Accuracy
         accuracy = accuracy_score(y_true=refs_chexbert_5, y_pred=hyps_chexbert_5)
         # Per element accuracy
-        y_type, y_true, y_pred = _check_targets(refs_chexbert_5, hyps_chexbert_5)
+        y_type, y_true, y_pred, *_ = _check_targets(refs_chexbert_5, hyps_chexbert_5)
         differing_labels = count_nonzero(y_true - y_pred, axis=1)
         pe_accuracy = (differing_labels == 0).astype(np.float32)
 

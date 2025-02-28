@@ -76,7 +76,7 @@ class GREEN:
         self.green_scores = None
         self.error_counts = None
         self.cache_dir = cache_dir
-        if torch.cuda.is_available() and torch.cuda.device_count() > 1 and not self.cpu:
+        if torch.cuda.is_available() and torch.cuda.device_count() > 1 and not self.cpu and "RANK" in os.environ:
             if not dist.is_initialized():
                 dist.init_process_group(
                     backend="nccl",
@@ -159,7 +159,7 @@ class GREEN:
     def infer(self):
         assert self.model is not None and self.tokenizer is not None
 
-        if torch.cuda.is_available() and torch.cuda.device_count() > 1 and not self.cpu:
+        if torch.cuda.is_available() and torch.cuda.device_count() > 1 and not self.cpu and "RANK" in os.environ:
             dataset_dist = split_dataset_by_node(
                 self.dataset,
                 rank=get_rank(),
@@ -179,7 +179,7 @@ class GREEN:
             local_references.extend(batch["prompt"])
             local_completions.extend(self.get_response(batch))
 
-        if torch.cuda.is_available() and torch.cuda.device_count() > 1 and not self.cpu:
+        if torch.cuda.is_available() and torch.cuda.device_count() > 1 and not self.cpu and "RANK" in os.environ:
             result = gather_processes(local_completions, local_references)
             
             if result is None or (isinstance(result, tuple) and result[0] is None):

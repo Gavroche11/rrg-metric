@@ -128,13 +128,20 @@ def compute(
 
         log(f"Computing '{metric}' scores...")
         start_time = time.time()
-        total_results, per_sample_results, pred_graphs, gt_graphs = computer(hyps=preds, refs=gts)
+        res = computer(hyps=preds, refs=gts)
         end_time = time.time()
         total_time = end_time - start_time
-        additional_results = {
-            "pred_graphs": pred_graphs,
-            "gt_graphs": gt_graphs
-        }
+        
+        if res[0] is None:
+            total_results = None
+            per_sample_results = None
+            additional_results = {}
+        else:
+            total_results, per_sample_results, pred_graphs, gt_graphs = res
+            additional_results = {
+                "pred_graphs": pred_graphs,
+                "gt_graphs": gt_graphs
+            }
 
     elif metric == "chexbert":
         from .chexbert import CheXbert
@@ -145,34 +152,41 @@ def compute(
 
         log(f"Computing '{metric}' scores...")
         start_time = time.time()
-        accuracy, accuracy_not_averaged, class_report, class_report_5, sembscores = computer(hyps=preds, refs=gts)
+        res = computer(hyps=preds, refs=gts)
         end_time = time.time()
         total_time = end_time - start_time
+        
+        if res[0] is None:
+            total_results = None
+            per_sample_results = None
+            additional_results = {}
+        else:
+            accuracy, accuracy_not_averaged, class_report, class_report_5, sembscores = res
 
-        total_results = {
-            "f1chexbert" : class_report_5['micro avg']['f1-score'],
-            "sembscore"  : np.mean(sembscores)
-        }
-        per_sample_results = {
-            "f1chexbert" : None,
-            "sembscore"  : sembscores
-        }
-        additional_results = {
-            "f1chexbert_accuracy"              : accuracy,
-            "f1chexbert_accuracy_not_averaged" : accuracy_not_averaged,
-            "f1chexbert_micro_precision_14"    : class_report['micro avg']['precision'],
-            "f1chexbert_micro_recall_14"       : class_report['micro avg']['recall'],
-            "f1chexbert_micro_f1_14"           : class_report['micro avg']['f1-score'],
-            "f1chexbert_micro_precision_5"     : class_report_5['micro avg']['precision'],
-            "f1chexbert_micro_recall_5"        : class_report_5['micro avg']['recall'],
-            "f1chexbert_micro_f1_5"            : class_report_5['micro avg']['f1-score'],
-            "f1chexbert_macro_precision_14"    : class_report['macro avg']['precision'],
-            "f1chexbert_macro_recall_14"       : class_report['macro avg']['recall'],
-            "f1chexbert_macro_f1_14"           : class_report['macro avg']['f1-score'],
-            "f1chexbert_macro_precision_5"     : class_report_5['macro avg']['precision'],
-            "f1chexbert_macro_recall_5"        : class_report_5['macro avg']['recall'],
-            "f1chexbert_macro_f1_5"            : class_report_5['macro avg']['f1-score'],
-        }
+            total_results = {
+                "f1chexbert" : class_report_5['micro avg']['f1-score'],
+                "sembscore"  : np.mean(sembscores)
+            }
+            per_sample_results = {
+                "f1chexbert" : None,
+                "sembscore"  : sembscores
+            }
+            additional_results = {
+                "f1chexbert_accuracy"              : accuracy,
+                "f1chexbert_accuracy_not_averaged" : accuracy_not_averaged,
+                "f1chexbert_micro_precision_14"    : class_report['micro avg']['precision'],
+                "f1chexbert_micro_recall_14"       : class_report['micro avg']['recall'],
+                "f1chexbert_micro_f1_14"           : class_report['micro avg']['f1-score'],
+                "f1chexbert_micro_precision_5"     : class_report_5['micro avg']['precision'],
+                "f1chexbert_micro_recall_5"        : class_report_5['micro avg']['recall'],
+                "f1chexbert_micro_f1_5"            : class_report_5['micro avg']['f1-score'],
+                "f1chexbert_macro_precision_14"    : class_report['macro avg']['precision'],
+                "f1chexbert_macro_recall_14"       : class_report['macro avg']['recall'],
+                "f1chexbert_macro_f1_14"           : class_report['macro avg']['f1-score'],
+                "f1chexbert_macro_precision_5"     : class_report_5['macro avg']['precision'],
+                "f1chexbert_macro_recall_5"        : class_report_5['macro avg']['recall'],
+                "f1chexbert_macro_f1_5"            : class_report_5['macro avg']['f1-score'],
+            }
 
     elif metric == "ratescore":
         from RaTEScore import RaTEScore

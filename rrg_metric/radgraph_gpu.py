@@ -55,6 +55,12 @@ class RadGraph(RadGraphCpu):
         # Modified from original radgraph==0.1.13
         nn.Module.__init__(self)
 
+        # Distibuted check
+        from .distributed_utils import is_distributed
+        if is_distributed():
+             local_rank = int(os.environ.get("LOCAL_RANK", 0))
+             cuda = local_rank
+
         if cuda is None:
             cuda = -1
         if cuda >= 0 and torch.cuda.is_available():
@@ -148,7 +154,40 @@ class F1RadGraph(F1RadGraphCpu):
             cuda=0,
             **kwargs
     ):
+        from .distributed_utils import is_distributed
+        if is_distributed():
+             local_rank = int(os.environ.get("LOCAL_RANK", 0))
+             cuda = local_rank
+
         nn.Module.__init__(self)
         assert reward_level in ["simple", "partial", "complete", "all"]
         self.reward_level = reward_level
         self.radgraph = RadGraph(model_type=model_type, cuda=cuda, **kwargs)
+
+    def __call__(self, hyps, refs):
+        from .distributed_utils import is_distributed, get_rank, get_world_size, split_data, gather_results
+        
+        if is_distributed():
+            rank = get_rank()
+            world_size = get_world_size()
+            
+            local_hyps = split_data(hyps, rank, world_size)
+            local_refs = split_data(refs, rank, world_size)
+            
+            # Check if super().__call__ works - calling the parent class implementation which uses self.radgraph
+            local_result = super().__call__(hyps=local_hyps, refs=local_refs)
+            
+            # Unpack: total_reward, reward_list, hypothesis_annotation_lists, reference_annotation_lists
+            total_reward, reward_list, hyp_ann, ref_ann = local_result
+            
+            all_rewards = gather_results(reward_list)
+            all_hyp_ann = gather_results(hyp_ann)
+            all_ref_ann = gather_results(ref_ann)
+            
+            if rank == 0:
+                total_reward = np.mean(all_rewards)
+                return total_reward, all_rewards, all_hyp_ann, all_ref_ann
+            else:
+                return None, None, None, None
+        else:
+            return super().__call__(hyps, refs)
