@@ -68,7 +68,7 @@ def compute(
     assert len(preds) == len(gts), "Number of predictions and ground truths should be the same"
 
     iters = zip(preds, gts)
-    log = lambda: None
+    log = lambda x: None
     if verbose:
         if metric in ["f1radgraph", "f1chexbert"]:
             iters = zip(preds, gts)
