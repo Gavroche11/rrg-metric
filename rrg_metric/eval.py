@@ -6,7 +6,7 @@ from typing import List, Dict, Union, Tuple, Any, Optional, Literal
 from sklearn.metrics import f1_score
 
 from evaluate import load
-from radgraph import F1RadGraph
+from .radgraph_gpu import F1RadGraph
 from f1chexbert import F1CheXbert
 from huggingface_hub import hf_hub_download
 
@@ -156,7 +156,7 @@ def compute(
 
         accuracy, accuracy_not_averaged, class_report, class_report_5 = computer(hyps=preds, refs=gts)
 
-        total_results = class_report_5['micro avg']['f1-score'],
+        total_results = class_report_5['micro avg']['f1-score']
         additional_results = {
             "accuracy"              : accuracy,
             "accuracy_not_averaged" : accuracy_not_averaged,
