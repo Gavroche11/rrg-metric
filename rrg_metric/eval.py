@@ -1,9 +1,18 @@
 import numpy as np
+import torch
 from tqdm.auto import tqdm
 import os
 from typing import List, Dict, Union, Tuple, Any, Optional, Literal
 from sklearn.metrics import f1_score
 import time
+from .distributed_utils import is_distributed, get_rank, get_world_size, split_data, gather_results
+import logging
+import sys
+from loguru import logger
+
+# Suppress PyRuSH debug logging
+logging.getLogger("PyRuSH").setLevel(logging.WARNING)
+logger.disable("PyRuSH")
 
 def compute(
     metric: Literal["bleu", "rouge", "meteor", "bertscore", "f1radgraph", "chexbert", "ratescore", "green"],
@@ -17,71 +26,35 @@ def compute(
 ) -> Dict[str, Any]:
     """
     Compute evaluation metrics for radiology report generation.
-
-    This function supports multiple evaluation metrics including BLEU, ROUGE, METEOR,
-    BERTScore, F1RadGraph, and CheXbert scores (F1 CheXbert, SembScore). It can compute both aggregate and per-sample
-    scores depending on the parameters.
-
-    Args:
-        metric (str): Evaluation metric to compute. Must be one of "bleu", "rouge",
-            "meteor", "bertscore", "f1radgraph", "chexbert", "ratescore", or "green".
-        preds (List[str]): List of model predictions/generated texts
-        gts (List[str]): List of ground truth/reference texts
-        per_sample (bool, optional): If True, returns scores for each individual 
-            prediction-reference pair. Defaults to False.
-        verbose (bool, optional): If True, displays progress bars and loading 
-            messages. Defaults to False.
-        f1radgraph_model_type (str, optional): Model type for F1RadGraph. Must be one of
-            "radgraph", "radgraph-xl", or "echograph". Defaults to "radgraph".
-        f1radgraph_reward_level (str, optional): Reward level for F1RadGraph. Must be one of
-            "simple", "partial", "complete", or "all". Defaults to "all".
-        cache_dir (optional): Cache directory for huggingface model downloads.
-
-    Returns:
-        Dict[str, Any]: A dictionary containing evaluation results:
-            - total_results: Overall score for the metric
-            - per_sample_results: Individual scores if per_sample=True (None otherwise)
-            - Additional metric-specific results (e.g., parsed graphs for f1radgraph)
-
-    Raises:
-        ValueError: If the specified metric is not supported or if the number of 
-            predictions and ground truths don't match.
-        AssertionError: If the lengths of preds and gts lists don't match.
-    
-    Examples:
-        >>> preds = ["Normal chest x-ray", "Bilateral pleural effusions noted"]
-        >>> gts = ["Normal chest radiograph", "Bilateral effusions present"]
-        >>> result = compute("bleu", preds=preds, gts=gts)
-        >>> print(f"BLEU score: {result['total_results']}")
-
-        >>> # Compute per-sample scores
-        >>> result = compute("bertscore", preds=preds, gts=gts, per_sample=True)
-        >>> print(f"Individual BERTScores: {result['per_sample_results']}")
     """
     per_sample_results = None
     additional_results = {}
     assert len(preds) == len(gts), "Number of predictions and ground truths should be the same"
 
-    iters = zip(preds, gts)
-    log = lambda x: None
-    if verbose:
-        if metric in ["f1radgraph", "chexbert", "ratescore", "green"]:
-            iters = zip(preds, gts)
-            log = print
-            print(f"Progress bar not available for '{metric}'.")
-        else:
-            iters = tqdm(iters, total=len(preds))
-            log = iters.set_description
+    rank = get_rank()
+    logger.info(f"[Rank {rank}] Starting compute for metric: {metric}")
 
+    iters = zip(preds, gts)
+    
+    def log_msg(msg):
+        if verbose:
+            logger.info(msg)
+        else:
+            logger.debug(msg)
+
+    if verbose and metric not in ["f1radgraph", "chexbert", "ratescore", "green"]:
+        iters = tqdm(iters, total=len(preds))
+        # Optional: update tqdm description via logger or keep as is
+    
     if metric in ["bleu", "rouge", "meteor"]:
         from evaluate import load
         
-        log(f"Loading '{metric}' computer...")
+        log_msg(f"Loading '{metric}' computer...")
         computer = load(metric)
 
         key = "rougeL" if metric == "rouge" else metric
 
-        log(f"Computing '{metric}' scores...")
+        log_msg(f"Computing '{metric}' scores...")
         start_time = time.time()
         if per_sample:
             per_sample_results = []
@@ -91,9 +64,7 @@ def compute(
                     references=[gt],
                 )[key]
                 per_sample_results.append(per_sample_result)
-                total_results = np.mean(per_sample_results)
-            end_time = time.time()
-            total_time = end_time - start_time
+            total_results = np.mean(per_sample_results)
         else:
             total_results = computer.compute(
                 predictions=preds,
@@ -105,10 +76,10 @@ def compute(
     elif metric == "bertscore":
         from evaluate import load
         
-        log(f"Loading '{metric}' computer...")
+        log_msg(f"Loading '{metric}' computer...")
         computer = load(metric)
 
-        log(f"Computing '{metric}' scores...")
+        log_msg(f"Computing '{metric}' scores...")
         start_time = time.time()
         per_sample_results = computer.compute(
             predictions=preds,
@@ -122,11 +93,11 @@ def compute(
     elif metric == "f1radgraph":
         from .radgraph_gpu import F1RadGraph
         
-        log(f"Loading '{metric}' computer...")
-        log(f"Model type: {f1radgraph_model_type}, Reward level: {f1radgraph_reward_level}")
+        log_msg(f"Loading '{metric}' computer...")
+        log_msg(f"Model type: {f1radgraph_model_type}, Reward level: {f1radgraph_reward_level}")
         computer = F1RadGraph(model_type=f1radgraph_model_type, reward_level=f1radgraph_reward_level)
 
-        log(f"Computing '{metric}' scores...")
+        log_msg(f"Computing '{metric}' scores...")
         start_time = time.time()
         res = computer(hyps=preds, refs=gts)
         end_time = time.time()
@@ -146,11 +117,10 @@ def compute(
     elif metric == "chexbert":
         from .chexbert import CheXbert
         
-        # Will always return both scores: F1 CheXbert and SembScore.
-        log(f"Loading '{metric}' computer...")
+        log_msg(f"Loading '{metric}' computer...")
         computer = CheXbert(cache_dir=cache_dir)
 
-        log(f"Computing '{metric}' scores...")
+        log_msg(f"Computing '{metric}' scores...")
         start_time = time.time()
         res = computer(hyps=preds, refs=gts)
         end_time = time.time()
@@ -190,25 +160,62 @@ def compute(
 
     elif metric == "ratescore":
         from RaTEScore import RaTEScore
-        log(f"Loading '{metric}' computer...")
+        log_msg(f"Loading '{metric}' computer...")
         computer = RaTEScore()
 
-        log(f"Computing '{metric}' scores...")
+        log_msg(f"Computing '{metric}' scores...")
+        
+        if is_distributed():
+             rank = get_rank()
+             world_size = get_world_size()
+             preds_split = split_data(preds, rank, world_size)
+             gts_split = split_data(gts, rank, world_size)
+        else:
+             preds_split = preds
+             gts_split = gts
+
+        logger.info(f"[Rank {rank}] Starting RaTEScore local computation")
         start_time = time.time()
-        per_sample_results = computer.compute_score(preds, gts)
+        local_results = computer.compute_score(preds_split, gts_split)
+        logger.info(f"[Rank {rank}] Finished RaTEScore local computation")
+        
+        if isinstance(local_results, list):
+            clean_results = []
+            for res in local_results:
+                if hasattr(res, 'item'):
+                     clean_results.append(res.item())
+                else:
+                     clean_results.append(res)
+            local_results = clean_results
+
+        if is_distributed():
+            logger.info(f"[Rank {rank}] Entering gather_results for {metric}")
+            gathered_results = gather_results(local_results)
+            logger.info(f"[Rank {rank}] Finished gather_results for {metric}")
+            if get_rank() == 0:
+                per_sample_results = gathered_results
+                total_results = np.mean(per_sample_results)
+            else:
+                per_sample_results = None
+                total_results = None
+        else:
+            per_sample_results = local_results
+            total_results = np.mean(per_sample_results)
+            
         end_time = time.time()
         total_time = end_time - start_time
-        total_results = np.mean(per_sample_results)
 
     elif metric == "green":
         from .green_score import GREEN
-        log(f"Loading '{metric}' computer...")
+        log_msg(f"Loading '{metric}' computer...")
         green_model_name = "StanfordAIMI/GREEN-radllama2-7b"
         computer = GREEN(model_name=green_model_name, cache_dir=cache_dir, output_dir='.', compute_summary_stats=False)
 
-        log(f"Computing '{metric}' scores...")
+        log_msg(f"Computing '{metric}' scores...")
         start_time = time.time()
-        mean, std, green_score_list, summary, result_df = computer(refs=gts, hyps=preds)        
+        logger.info(f"[Rank {rank}] Calling GREEN computer")
+        mean, std, green_score_list, summary, result_df = computer(refs=gts, hyps=preds)
+        logger.info(f"[Rank {rank}] GREEN computer returned")
         end_time = time.time()
         total_time = end_time - start_time
         total_results = mean
@@ -222,7 +229,17 @@ def compute(
     else:
         raise ValueError(f"Invalid metric: {metric}")
 
-    log("Done.")
+    logger.info(f"[Rank {rank}] Starting cleanup")
+    if 'computer' in locals():
+        del computer
+    import gc
+    gc.collect()
+    if torch.cuda.is_available():
+        logger.debug(f"[Rank {rank}] Emptying cache")
+        torch.cuda.empty_cache()
+    logger.info(f"[Rank {rank}] Cleanup finished")
+
+    log_msg("Done.")
 
     return {
         "total_results": total_results,

@@ -150,8 +150,7 @@ def gather_processes(local_candidates, local_references=None):
         print(f"Error during result gathering: {e}")
 
     if local_rank != 0:
-        dist.destroy_process_group()
-        sys.exit()
+        return None
 
     # Flatten the gathered list - filter out None values
     candidates_list = []

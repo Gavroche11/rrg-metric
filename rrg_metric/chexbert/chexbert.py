@@ -112,7 +112,7 @@ class CheXbert(nn.Module):
         else:
             raise NotImplementedError(mode)
 
-        return v, embeds
+        return v, embeds.detach().cpu()
 
     def forward(self, hyps, refs):
         from ..distributed_utils import is_distributed, get_rank, get_world_size, split_data, gather_results
@@ -138,8 +138,8 @@ class CheXbert(nn.Module):
 
         if is_distributed():
              # Move to CPU for gathering
-             refs_chexbert = [(r[0], r[1].cpu()) for r in refs_chexbert]
-             hyps_chexbert = [(h[0], h[1].cpu()) for h in hyps_chexbert]
+             # refs_chexbert = [(r[0], r[1].cpu()) for r in refs_chexbert]
+             # hyps_chexbert = [(h[0], h[1].cpu()) for h in hyps_chexbert]
              
              all_refs_chexbert = gather_results(refs_chexbert)
              all_hyps_chexbert = gather_results(hyps_chexbert)

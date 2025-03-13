@@ -3,43 +3,34 @@ import numpy as np
 import rrg_metric
 import json
 import argparse
-from typing import Any, List, Dict
-import torch.distributed as dist
+from typing import List
 from pathlib import Path
 from rrg_metric.distributed_utils import check_distributed_init, is_main_process
+from rrg_metric.utils import make_json_serializable
 from rrg_metric import AVAILABLE_METRICS
 
-def make_json_serializable(obj: Any) -> Any:
-    if isinstance(obj, dict):
-        return {key: make_json_serializable(value) for key, value in obj.items()}
-    elif isinstance(obj, list):
-        return [make_json_serializable(item) for item in obj]
-    elif isinstance(obj, tuple):
-        return [make_json_serializable(item) for item in obj]
-    elif isinstance(obj, np.ndarray):
-        return obj.tolist()
-    elif isinstance(obj, (np.integer, np.floating)):
-        return obj.item()
-    elif isinstance(obj, np.bool_):
-        return bool(obj)
-    elif isinstance(obj, (int, float, str, bool, type(None))):
-        return obj
-    else:
-        return str(obj)
-    
-def main():
+HF_CACHE_DIR = "/data1/huggingface"
+DATASETS = ["snu", "mimic", "openi", "rexgradient"]
+TEST_OUTPUTS_ROOT = "/data1/workspace/bih1122/llava_test_outputs"
+METRICS_ROOT = "/data1/workspace/bih1122/test_metrics"
+
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Compute metrics for datasets')
     parser.add_argument('--model_ver', type=str, required=True,
                         help='Model version to use for metrics computation')
-    parser.add_argument('--hf_cache_dir', type=str, default='/data1/huggingface',
-                        help='Huggingface cache directory (default: /data1/huggingface)')
-    parser.add_argument('--datasets', nargs='*', default=['snu', 'mimic', 'openi', 'rexgradient'],
-                        help='List of datasets to process (default: snu mimic openi rexgradient)')
-    parser.add_argument('--test_outputs_root', type=str, default='/data1/workspace/bih1122/llava_test_outputs',
-                        help='Root directory for test outputs (default: /data1/workspace/bih1122/llava_test_outputs)')
-    parser.add_argument('--metrics_root', type=str, default='/data1/workspace/bih1122/test_metrics',
-                        help='Root directory for metrics (default: /data1/workspace/bih1122/test_metrics)')
+    parser.add_argument('--hf_cache_dir', type=str, default=HF_CACHE_DIR,
+                        help=f'Huggingface cache directory (default: {HF_CACHE_DIR})')
+    parser.add_argument('--datasets', nargs='*', default=DATASETS,
+                        help=f'List of datasets to process (default: {" ".join(DATASETS)})')
+    parser.add_argument('--test_outputs_root', type=str, default=TEST_OUTPUTS_ROOT,
+                        help=f'Root directory for test outputs (default: {TEST_OUTPUTS_ROOT})')
+    parser.add_argument('--metrics_root', type=str, default=METRICS_ROOT,
+                        help=f'Root directory for metrics (default: {METRICS_ROOT})')
     args = parser.parse_args()
+    return args
+    
+def main():
+    args = parse_args()
 
     test_outputs_dir: Path = Path(args.test_outputs_root) / args.model_ver
     metrics_dir: Path = Path(args.metrics_root) / args.model_ver
