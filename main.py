@@ -8,13 +8,17 @@ DATASETS = ['mimic', 'openi']
 TEST_OUTPUTS_ROOT = '/data1/workspace/bih1122/llava_test_outputs'
 METRICS_ROOT = '/data1/workspace/bih1122/test_metrics'
 
-model_ver = 'v2.3-ft-6668'
+# model_ver = 'v3.2-EVA-X-RRIEF-LLAMA-3.2-3B-3422'
+model_ver = "v2.9-full"
 test_outputs_dir = os.path.join(TEST_OUTPUTS_ROOT, model_ver)
 metrics_dir = os.path.join(METRICS_ROOT, model_ver)
 os.makedirs(metrics_dir, exist_ok=True)
 
-available_metrics = rrg_metric.AVAILABLE_METRICS # ['bleu', 'rouge', 'meteor', 'bertscore', 'f1radgraph', 'f1chexbert']
-# available_metrics = ['bleu', 'rouge', 'meteor', 'bertscore', 'f1chexbert']
+available_metrics = rrg_metric.AVAILABLE_METRICS
+
+print("model:", model_ver)
+print("test_outputs_dir:", test_outputs_dir)
+print("Available metrics:", available_metrics)
 
 for dataset in DATASETS:
     basename = f'{dataset}_test_outputs.csv'
