@@ -1,6 +1,7 @@
 AVAILABLE_METRICS = [
-    "f1chexbert",
+    "chexbert",
     "f1radgraph",
+    "ratescore",
     "bleu",
     "rouge",
     "meteor",
