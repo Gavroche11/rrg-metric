@@ -5,18 +5,37 @@ import json
 import os
 
 DATASETS = ['mimic', 'openi']
+# DATASETS = ["snu"]
+
 TEST_OUTPUTS_ROOT = '/data1/workspace/bih1122/llava_test_outputs'
+# TEST_OUTPUTS_ROOT = '/data1/workspace/bih1122/other_models_test_outputs'
+
 METRICS_ROOT = '/data1/workspace/bih1122/test_metrics'
 
-model_ver = "v3.2-EVA-X-RRIEF-LLAMA-3.2-3B-3422"
+# model_ver = "v2.9-BASELINE-LLAMA-3.2-1B-lora-3422"
+# model_ver = "v2.9-full"
+# model_ver = "v3.2-EVA-X-RRIEF-LLAMA-3.2-3B-3422"
+# model_ver = "v3.3-EVA-X-PT-LLAMA-3.2-1B-ORIGINAL-LABELS-lora-3422"
+# model_ver = "v3.4-EVA-X-FT-LLAMA-3.2-1B-CHEXGPT-lora-3422"
+# model_ver = "v3.5-EVA-X-FT-LLAMA-3.2-1B-RRIEF-lora-3422"
+# model_ver = "v3.5.1-EVA-X-FT-LLAMA-3.2-1B-RRIEF-lora-3422"
+# model_ver = "v3.5.2-EVA-X-FT-LLAMA-3.2-1B-RRIEF-lora-3422"
+# model_ver = "v3.5.2-EVA-X-FT-LLAMA-3.2-1B-RRIEF-lora-3422"
+# model_ver = "v3.6-CHEXGPT-RRIEF-lora-3422"
+model_ver = "v3.5.2-full-EVA-X-FT-LLAMA-3.2-1B-RRIEF-3422"
+
+# model_ver = "maira"
+# model_ver = "cxr-llava"
+# model_ver = "chexagent"
+
 test_outputs_dir = os.path.join(TEST_OUTPUTS_ROOT, model_ver)
 metrics_dir = os.path.join(METRICS_ROOT, model_ver)
 os.makedirs(metrics_dir, exist_ok=True)
 
-# available_metrics = rrg_metric.AVAILABLE_METRICS
-available_metrics = ["chexbert", "ratescore"]
+available_metrics = rrg_metric.AVAILABLE_METRICS
 
 print("model:", model_ver)
+print("datasets:", DATASETS)
 print("test_outputs_dir:", test_outputs_dir)
 print("Available metrics:", available_metrics)
 
@@ -45,7 +64,7 @@ for dataset in DATASETS:
             
             print(metric, results_dict[metric])
 
-        # save_path = os.path.join(metrics_dir, f"{dataset}_test_outputs_metrics.json")
+        save_path = os.path.join(metrics_dir, f"{dataset}_test_outputs_metrics.json")
 
-        # json.dump(results_dict, open(save_path, "w"), indent=4)
-        # print(f"Results for {dataset} saved in {save_path}")
+        json.dump(results_dict, open(save_path, "w"), indent=4)
+        print(f"Results for {dataset} saved in {save_path}")

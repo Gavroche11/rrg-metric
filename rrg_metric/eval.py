@@ -10,7 +10,7 @@ def compute(
     gts: List[str],
     per_sample: bool = False,
     verbose: bool = False,
-    f1radgraph_model_type: Optional[Literal["radgraph", "radgraph-xl", "echograph"]] = "radgraph-xl",
+    f1radgraph_model_type: Optional[Literal["radgraph", "radgraph-xl", "echograph"]] = "radgraph",
     f1radgraph_reward_level: Optional[Literal["simple", "partial", "complete", "all"]] = "complete",
     cache_dir = None,
 ) -> Dict[str, Any]:

@@ -5,5 +5,5 @@ AVAILABLE_METRICS = [
     "bleu",
     "rouge",
     "meteor",
-    "bertscore"
+    "bertscore",
 ]
