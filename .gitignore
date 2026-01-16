@@ -1,8 +1,6 @@
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python
 
-metrics.ipynb
-
 ### Python ###
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -82,7 +80,6 @@ docs/_build/
 target/
 
 # Jupyter Notebook
-.ipynb
 .ipynb_checkpoints
 
 # IPython
@@ -169,7 +166,20 @@ cython_debug/
 ### Python Patch ###
 # Poetry local configuration file - https://python-poetry.org/docs/configuration/#local-configuration
 poetry.toml
+<<<<<<< HEAD
 
 # personal
 no_commit/
 *.yml
+=======
+
+# ruff
+.ruff_cache/
+
+# LSP config files
+pyrightconfig.json
+
+# End of https://www.toptal.com/developers/gitignore/api/python
+
+test.py
+>>>>>>> commit
