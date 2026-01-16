@@ -1,4 +1,5 @@
 import re
+from unittest import result
 import torch
 import torch.distributed as dist
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -126,13 +127,12 @@ class GREEN:
             print("Processing data...making prompts")
 
         dataset = Dataset.from_dict({"reference": refs, "prediction": hyps})
-
         dataset = self.process_data(dataset)
+        
         if is_main_process():
             print("Done.")
 
         self.dataset = dataset
-
         t = time.time()
 
         mean, std, green_scores, summary, results_df = self.infer()
@@ -140,11 +140,6 @@ class GREEN:
         t = time.time() - t
         if is_main_process():
             print("Seconds per example: ", t / len(refs))
-
-        if not is_main_process():
-            print(f"Rank {dist.get_rank()} exiting.")
-            dist.destroy_process_group()
-            sys.exit()
 
         return mean, std, green_scores, summary, results_df
 
@@ -185,9 +180,12 @@ class GREEN:
             local_completions.extend(self.get_response(batch))
 
         if torch.cuda.is_available() and torch.cuda.device_count() > 1 and not self.cpu:
-            self.completions, self.prompts = gather_processes(
-                local_completions, local_references
-            )
+            result = gather_processes(local_completions, local_references)
+            
+            if result is None or (isinstance(result, tuple) and result[0] is None):
+                return None, None, None, None, None
+            
+            self.completions, self.prompts = result
         else:
             self.completions = local_completions
             self.prompts = local_references
@@ -275,6 +273,9 @@ class GREEN:
 
         if self.compute_summary_stats:
             mean, std, summary = self.compute_summary()
+        else:
+            mean = np.mean(self.green_scores)
+            std = np.std(self.green_scores)
 
         return mean, std, self.green_scores, summary, results_df
 

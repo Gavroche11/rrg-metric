@@ -75,6 +75,7 @@ docs/_build/
 target/
 
 # Jupyter Notebook
+.ipynb
 .ipynb_checkpoints
 
 # IPython
@@ -171,3 +172,4 @@ cython_debug/
 
 # personal
 no_commit/
+*.yml

@@ -27,7 +27,7 @@ BLEU, ROUGE, METEOR, BERTScore, F1RadGraph, F1CheXbert, and SembScore.
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/jogihood/rrg-metric.git
+git clone https://github.com/Gavroche11/rrg-metric.git
 cd rrg-metric
 ```
 

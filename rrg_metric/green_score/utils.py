@@ -137,33 +137,33 @@ def gather_processes(local_candidates, local_references=None):
     global_references_list = None
 
     if local_rank == 0:
-        # Initialize the gather list only on the root process
         global_candidates_list = [None for _ in range(world_size)]
         global_references_list = [None for _ in range(world_size)]
+    
     try:
         dist.gather_object(local_candidates, global_candidates_list, dst=0)
 
-        if not local_references is None:
+        if local_references is not None:
             dist.gather_object(local_references, global_references_list, dst=0)
 
     except Exception as e:
         print(f"Error during result gathering: {e}")
 
     if local_rank != 0:
-        # Exit the process
-        # print(f"Rank {dist.get_rank()} exiting.")
-        dist.destroy_process_group()  # Clean up the distributed processing group
-        sys.exit()  # Exit the process
+        dist.destroy_process_group()
+        sys.exit()
 
-    # Flatten the gathered list
+    # Flatten the gathered list - filter out None values
     candidates_list = []
     for i in global_candidates_list:
-        candidates_list.extend(i)
+        if i is not None:  # Add None check
+            candidates_list.extend(i)
 
-    if not global_references_list[0] is None:
+    if global_references_list[0] is not None:
         references_list = []
         for i in global_references_list:
-            references_list.extend(i)
+            if i is not None:  # Add None check
+                references_list.extend(i)
         print(f"References list: {len(references_list)}")
         return candidates_list, references_list
 

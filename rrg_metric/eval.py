@@ -63,8 +63,7 @@ def compute(
     assert len(preds) == len(gts), "Number of predictions and ground truths should be the same"
 
     iters = zip(preds, gts)
-    log = lambda: None
-    total_time = 0
+    log = lambda x: None
     if verbose:
         if metric in ["f1radgraph", "chexbert", "ratescore", "green"]:
             iters = zip(preds, gts)
@@ -191,7 +190,7 @@ def compute(
         from .green_score import GREEN
         log(f"Loading '{metric}' computer...")
         green_model_name = "StanfordAIMI/GREEN-radllama2-7b"
-        computer = GREEN(model_name=green_model_name, cache_dir=cache_dir, output_dir='.')
+        computer = GREEN(model_name=green_model_name, cache_dir=cache_dir, output_dir='.', compute_summary_stats=False)
 
         log(f"Computing '{metric}' scores...")
         start_time = time.time()
