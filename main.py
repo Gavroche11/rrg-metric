@@ -79,11 +79,12 @@ def main():
                         }
 
                         total_results_dict["sembscore"] = results["total_results"]["sembscore"]
-                        logger.info(f"[Rank {rank}] Computed f1chexbert results: "
-                                    f"F1 CheXbert Macro F1 14: {results['f1chexbert_macro_f1_14']}, "
-                                    f"F1 CheXbert Macro F1 5: {results['f1chexbert_macro_f1_5']}, "
-                                    f"F1 CheXbert Micro F1 14: {results['f1chexbert_micro_f1_14']}, "
-                                    f"F1 CheXbert Micro F1 5: {results['f1chexbert_micro_f1_5']}")
+                        logger.info(f"[Rank {rank}] Computed f1chexbert results:")
+                        logger.info(f"[Rank {rank}] Macro F1 14: {results['f1chexbert_macro_f1_14']}")
+                        logger.info(f"[Rank {rank}] Micro F1 14: {results['f1chexbert_micro_f1_14']}")
+                        logger.info(f"[Rank {rank}] Macro F1 5: {results['f1chexbert_macro_f1_5']}")
+                        logger.info(f"[Rank {rank}] Micro F1 5: {results['f1chexbert_micro_f1_5']}")
+                        logger.info(f"[Rank {rank}] SembScore: {results['total_results']['sembscore']}")
                         per_sample_results_dict["f1chexbert"] = results["per_sample_results"]
 
             if is_main_process():
