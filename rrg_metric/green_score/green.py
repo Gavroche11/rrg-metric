@@ -12,6 +12,7 @@ import numpy as np
 import time
 import sys
 import warnings
+from loguru import logger
 
 # Import necessary functions (ensure these are available in your environment)
 from .utils import (
@@ -40,7 +41,7 @@ def is_main_process():
 
 def tqdm_on_main(*args, **kwargs):
     if is_main_process():
-        print("==== Beginning Inference ====")
+        logger.debug(f"[Rank {get_rank()}] Beginning Inference.")
         return tqdm(*args, **kwargs)
     else:
         return kwargs.get("iterable", None)
@@ -83,8 +84,8 @@ class GREEN:
                 )
                 torch.cuda.set_device(dist.get_rank())
                 if dist.get_rank() == 0:
-                    print(
-                        "Distributed training with", torch.cuda.device_count(), "GPUs"
+                    logger.debug(
+                        f"[Rank {dist.get_rank()}] Distributed training with {torch.cuda.device_count()} GPUs"
                     )
         self.model = None
         self.tokenizer = None
@@ -124,13 +125,13 @@ class GREEN:
 
     def __call__(self, refs, hyps):
         if is_main_process():
-            print("Processing data...making prompts")
+            logger.debug(f"[Rank {dist.get_rank()}] Processing data...making prompts")
 
         dataset = Dataset.from_dict({"reference": refs, "prediction": hyps})
         dataset = self.process_data(dataset)
         
         if is_main_process():
-            print("Done.")
+            logger.debug(f"[Rank {dist.get_rank()}] Finished processing data.")
 
         self.dataset = dataset
         t = time.time()
@@ -139,8 +140,7 @@ class GREEN:
 
         t = time.time() - t
         if is_main_process():
-            print("Seconds per example: ", t / len(refs))
-
+            logger.debug(f"[Rank {dist.get_rank()}] Seconds per example: {t / len(refs)}")
         return mean, std, green_scores, summary, results_df
 
     def process_data(self, dataset):
@@ -165,7 +165,7 @@ class GREEN:
                 rank=get_rank(),
                 world_size=int(os.environ["WORLD_SIZE"]),
             )
-            print("Distributed dataset created on rank: ", int(os.environ["RANK"]))
+            logger.debug(f"[Rank {dist.get_rank()}] Distributed dataset created on rank: {int(os.environ['RANK'])}")
         else:
             dataset_dist = self.dataset
 
@@ -191,10 +191,10 @@ class GREEN:
             self.prompts = local_references
 
         if is_main_process():
-            print("==== End Inference ====")
+            logger.debug(f"[Rank {dist.get_rank()}] End Inference")
 
         if len(self.completions) != len(self.prompts):
-            print("Length of prompts and completions are not equal!")
+            logger.warning(f"[Rank {dist.get_rank()}] Length of prompts and completions are not equal!")
 
         return self.process_results()
 
@@ -417,7 +417,7 @@ class GREEN:
         return dict_acc
 
     def compute_summary(self):
-        print("Computing summary ...")
+        logger.info(f"[Rank {dist.get_rank()}] Computing summary ...")
         representative_sentences = self.get_representative_sentences(self.completions)
         accuracies = self.compute_accuracy(self.completions)
         mean = np.mean(self.green_scores)
