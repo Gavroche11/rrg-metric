@@ -12,7 +12,7 @@ from loguru import logger
 
 HF_CACHE_DIR = "/data1/huggingface"
 DATASETS = ["snu", "mimic", "openi", "rexgradient"]
-TEST_OUTPUTS_ROOT = "/data1/workspace/bih1122/llava_test_outputs"
+TEST_OUTPUTS_ROOT = "/data1/workspace/bih1122/other_test_outputs"
 METRICS_ROOT = "/data1/workspace/bih1122/test_metrics"
 
 def parse_args() -> argparse.Namespace:
@@ -23,6 +23,12 @@ def parse_args() -> argparse.Namespace:
                         help=f'Huggingface cache directory (default: {HF_CACHE_DIR})')
     parser.add_argument('--datasets', nargs='*', default=DATASETS,
                         help=f'List of datasets to process (default: {" ".join(DATASETS)})')
+    parser.add_argument('--metrics', nargs='*', default=AVAILABLE_METRICS,
+                        help=f'List of metrics to compute (default: {" ".join(AVAILABLE_METRICS)})')
+    parser.add_argument('--per_sample', action='store_true',
+                        help='Compute per-sample metrics')
+    parser.add_argument('--verbose', action='store_true',
+                        help='Enable verbose output')
     parser.add_argument('--test_outputs_root', type=str, default=TEST_OUTPUTS_ROOT,
                         help=f'Root directory for test outputs (default: {TEST_OUTPUTS_ROOT})')
     parser.add_argument('--metrics_root', type=str, default=METRICS_ROOT,
@@ -32,6 +38,7 @@ def parse_args() -> argparse.Namespace:
     
 def main():
     args = parse_args()
+    assert all(metric in AVAILABLE_METRICS for metric in args.metrics), f"Some provided metrics are not in AVAILABLE_METRICS: {AVAILABLE_METRICS}"
 
     test_outputs_dir: Path = Path(args.test_outputs_root) / args.model_ver
     metrics_dir: Path = Path(args.metrics_root) / args.model_ver
@@ -55,12 +62,12 @@ def main():
             total_results_dict = {}
             per_sample_results_dict = {}
             green_df = pd.DataFrame()
-            for metric in AVAILABLE_METRICS:
+            for metric in args.metrics:
                 results = rrg_metric.compute(metric=metric,
                                              preds=preds,
                                              gts=gts,
-                                             per_sample=False,
-                                             verbose=(metric == "green"),
+                                             per_sample=args.per_sample,
+                                             verbose=args.verbose,
                                              cache_dir=args.hf_cache_dir)
 
                 if is_main_process():
@@ -80,11 +87,11 @@ def main():
 
                         total_results_dict["sembscore"] = results["total_results"]["sembscore"]
                         logger.info(f"[Rank {rank}] Computed f1chexbert results:")
-                        logger.info(f"[Rank {rank}] Macro F1 14: {results['f1chexbert_macro_f1_14']}")
-                        logger.info(f"[Rank {rank}] Micro F1 14: {results['f1chexbert_micro_f1_14']}")
-                        logger.info(f"[Rank {rank}] Macro F1 5: {results['f1chexbert_macro_f1_5']}")
-                        logger.info(f"[Rank {rank}] Micro F1 5: {results['f1chexbert_micro_f1_5']}")
-                        logger.info(f"[Rank {rank}] SembScore: {results['total_results']['sembscore']}")
+                        logger.info(f"[Rank {rank}]   Macro F1 14: {results['f1chexbert_macro_f1_14']}")
+                        logger.info(f"[Rank {rank}]   Micro F1 14: {results['f1chexbert_micro_f1_14']}")
+                        logger.info(f"[Rank {rank}]   Macro F1 5: {results['f1chexbert_macro_f1_5']}")
+                        logger.info(f"[Rank {rank}]   Micro F1 5: {results['f1chexbert_micro_f1_5']}")
+                        logger.info(f"[Rank {rank}]   SembScore: {results['total_results']['sembscore']}")
                         per_sample_results_dict["f1chexbert"] = results["per_sample_results"]
 
             if is_main_process():
